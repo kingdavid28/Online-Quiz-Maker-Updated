@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { AIService, AIQuestion } from '../lib/aiService';
+import { AdvancedAIService } from '../lib/advancedAIService';
 import { ParsedQuestion, parseQuizContent } from '../lib/quizParser';
 
 interface AIQuizGeneratorProps {
@@ -159,29 +159,30 @@ A: 1945`;
     setParseErrors([]);
     
     try {
-      const aiService = AIService.getInstance();
+      const aiService = AdvancedAIService.getInstance();
       const questions = await aiService.generateQuestions({
         topic,
         questionCount: 5,
-        questionTypes: ['multiple-choice', 'true-false', 'short-answer'],
-        difficulty: 'medium'
+        questionTypes: ['multiple-choice', 'true-false', 'short-answer', 'fill-blank'],
+        difficulty: 'medium',
+        context: content
       });
       
-      // Convert AI questions to ParsedQuestion format
-      const parsedQuestions: ParsedQuestion[] = questions.map((q, index) => ({
-        type: q.type,
+      // Convert advanced AI questions to ParsedQuestion format
+      const parsedQuestions: ParsedQuestion[] = questions.map((q: any) => ({
+        type: q.type as 'multiple-choice' | 'true-false' | 'short-answer',
         question: q.question,
         options: q.options,
         correctAnswer: q.correctAnswer,
-        points: q.points || 10
+        points: q.points
       }));
       
-      console.log('Generated questions:', parsedQuestions);
+      console.log('Advanced AI Generated questions:', parsedQuestions);
       setPreviewQuestions(parsedQuestions);
       setDetectedTitle(topic);
-      toast.success(`Generated ${parsedQuestions.length} questions about ${topic}!`);
-    } catch (error) {
-      console.error('AI generation failed:', error);
+      toast.success(`Generated ${parsedQuestions.length} intelligent questions about ${topic}!`);
+    } catch (error: any) {
+      console.error('Advanced AI generation failed:', error);
       setParseErrors(['Failed to generate questions: ' + error.message]);
       setIsProcessing(false);
     } finally {

@@ -102,6 +102,7 @@ A: 1945`;
     try {
       // Small delay to show processing state
       setTimeout(() => {
+        // Try to parse as existing quiz content first
         const result = parseQuizContent(text);
         
         console.log('Parse result:', { 
@@ -118,9 +119,10 @@ A: 1945`;
         if (result.questions.length > 0) {
           setPreviewQuestions(result.questions);
           setDetectedTitle(result.title || '');
-          toast.success(`Generated ${result.questions.length} questions!`);
+          toast.success(`Parsed ${result.questions.length} questions!`);
         } else {
-          toast.error('No questions found. Try clicking "Load Example" to see how it works.');
+          // If no questions found, try AI generation
+          handleGenerate();
         }
         
         setIsProcessing(false);

@@ -322,8 +322,8 @@ export function QuestionBank() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {questions.map((question) => (
-              <Card key={question.id}>
+            {questions.map((question, index) => (
+              <Card key={question.id || `question-${index}`}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

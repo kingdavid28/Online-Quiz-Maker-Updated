@@ -126,7 +126,4 @@ Coming soon:
 - Bulk import from spreadsheets
 - Question difficulty detection
 
-Deployment Success
-Live URL: https://online-quiz-maker-delta.vercel.app
-
-Production URL: https://online-quiz-maker-6u8mvq9jk-reycelrcentino-1494s-projects.vercel.app
+https://online-quiz-maker-updated.vercel.app/

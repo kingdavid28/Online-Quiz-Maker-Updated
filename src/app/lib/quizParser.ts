@@ -2,7 +2,7 @@ export interface ParsedQuestion {
   type: 'multiple-choice' | 'true-false' | 'short-answer';
   question: string;
   options?: string[];
-  correctAnswer: string;
+  correctAnswer: string | number;
   points: number;
 }
 

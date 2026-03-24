@@ -3,8 +3,8 @@ import { Upload, FileText, Sparkles, X, CheckCircle, AlertCircle, Copy } from 'l
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
-import { parseQuizContent, ParsedQuestion } from '../lib/quizParser';
 import { toast } from 'sonner';
+import { AIService, AIQuestion } from '../lib/aiService';
 
 interface AIQuizGeneratorProps {
   onQuestionsGenerated: (questions: ParsedQuestion[], title?: string) => void;
@@ -132,14 +132,48 @@ A: 1945`;
     }
   }, []);
 
-  const handleGenerate = () => {
-    if (previewQuestions.length === 0) {
-      toast.error('No questions to add');
+  const handleGenerate = async () => {
+    if (content.trim().length === 0) {
+      toast.error('Please enter a topic to generate questions about');
       return;
     }
 
-    onQuestionsGenerated(previewQuestions, detectedTitle);
-    toast.success('Questions added to quiz!');
+    // Extract topic from content
+    const topicMatch = content.match(/topic:\s*(.+)/i);
+    const topic = topicMatch ? topicMatch[1] : content.trim().split('\n')[0] || 'General Knowledge';
+    
+    setIsProcessing(true);
+    setParseErrors([]);
+    
+    try {
+      const aiService = AIService.getInstance();
+      const questions = await aiService.generateQuestions({
+        topic,
+        questionCount: 5,
+        questionTypes: ['multiple-choice', 'true-false', 'short-answer'],
+        difficulty: 'medium'
+      });
+      
+      // Convert AI questions to ParsedQuestion format
+      const parsedQuestions: ParsedQuestion[] = questions.map((q, index) => ({
+        type: q.type,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        points: q.points || 10
+      }));
+      
+      console.log('Generated questions:', parsedQuestions);
+      setPreviewQuestions(parsedQuestions);
+      setDetectedTitle(topic);
+      toast.success(`Generated ${parsedQuestions.length} questions about ${topic}!`);
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      setParseErrors(['Failed to generate questions: ' + error.message]);
+      setIsProcessing(false);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePaste = async () => {

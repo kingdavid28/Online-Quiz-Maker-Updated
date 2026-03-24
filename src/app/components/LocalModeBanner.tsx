@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 export function LocalModeBanner() {
   const [isVisible, setIsVisible] = useState(true);
-  const isLocalMode = localStorage.getItem('quizify_use_local_mode') === 'true';
-
-  if (!isLocalMode || !isVisible) return null;
+  
+  // Always hide local mode banner since we're always online
+  if (!isVisible) return null;
 
   const switchBackToSupabase = () => {
     localStorage.removeItem('quizify_use_local_mode');

@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
-// Check if user wants to use local mode (localStorage fallback)
-const useLocalMode = localStorage.getItem('quizify_use_local_mode') === 'true';
+// Always use online production mode
+const useLocalMode = false;
 
-// Check if we have valid credentials and user hasn't opted for local mode
-const hasSupabaseCredentials = !useLocalMode && !!(projectId && publicAnonKey);
+// Check if we have valid credentials for production mode
+const hasSupabaseCredentials = !!(projectId && publicAnonKey);
 
 // Create a dummy client for type compatibility
 const dummyClient = {

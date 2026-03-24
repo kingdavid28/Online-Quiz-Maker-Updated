@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { AdvancedAIService } from '../lib/advancedAIService';
-import { ParsedQuestion, parseQuizContent } from '../lib/quizParser';
+import { ParsedQuestion } from '../lib/quizParser';
 
 interface AIQuizGeneratorProps {
   onQuestionsGenerated: (questions: ParsedQuestion[], title?: string) => void;

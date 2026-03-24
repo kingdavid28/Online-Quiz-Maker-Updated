@@ -20,13 +20,13 @@ export default defineConfig({
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
-  // Cache busting for development
+  // Force new filename for cache busting
   build: {
     rollupOptions: {
       output: {
-        // Add hash to filenames for cache busting
-        entryFileNames: `assets/[name]-[hash].js`,
-        chunkFileNames: `assets/[name]-[hash].js`,
+        // Force completely new filename
+        entryFileNames: `assets/app-[hash].js`,
+        chunkFileNames: `assets/chunk-[hash].js`,
         assetFileNames: `assets/[name]-[hash].[ext]`
       }
     }

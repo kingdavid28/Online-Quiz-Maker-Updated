@@ -96,41 +96,43 @@ A: 1945`;
     reader.readAsText(file);
   };
 
-  const processContent = useCallback((text: string) => {
+  const processContent = useCallback(async (text: string) => {
     setIsProcessing(true);
     setParseErrors([]);
     
     try {
-      // Small delay to show processing state
-      setTimeout(() => {
-        // Try to parse as existing quiz content first
-        const result = parseQuizContent(text);
-        
-        console.log('Parse result:', { 
-          questionsFound: result.questions.length, 
-          errors: result.errors,
-          contentLength: text.length,
-          firstLine: text.split('\n')[0]
-        });
-        
-        if (result.errors.length > 0) {
-          setParseErrors(result.errors);
-        }
-        
-        if (result.questions.length > 0) {
-          setPreviewQuestions(result.questions);
-          setDetectedTitle(result.title || '');
-          toast.success(`Parsed ${result.questions.length} questions!`);
-        } else {
-          // If no questions found, try AI generation
-          handleGenerate();
-        }
-        
-        setIsProcessing(false);
-      }, 500);
-    } catch (error) {
-      console.error('Processing error:', error);
-      setParseErrors(['Failed to process content']);
+      // Extract topic from content for AI generation
+      const topicMatch = text.match(/topic:\s*(.+)/i);
+      const topic = topicMatch ? topicMatch[1] : text.trim().split('\n')[0] || 'General Knowledge';
+      
+      // Use Advanced AI Service for intelligent generation
+      const aiService = AdvancedAIService.getInstance();
+      const questions = await aiService.generateQuestions({
+        topic,
+        questionCount: 5,
+        questionTypes: ['multiple-choice', 'true-false', 'short-answer'],
+        difficulty: 'medium',
+        context: text
+      });
+      
+      // Convert advanced AI questions to ParsedQuestion format
+      const parsedQuestions: ParsedQuestion[] = questions.map((q: any) => ({
+        type: q.type as 'multiple-choice' | 'true-false' | 'short-answer',
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        points: q.points
+      }));
+      
+      console.log('Advanced AI Generated questions:', parsedQuestions);
+      setPreviewQuestions(parsedQuestions);
+      setDetectedTitle(topic);
+      toast.success(`Generated ${parsedQuestions.length} intelligent questions about ${topic}!`);
+      
+      setIsProcessing(false);
+    } catch (error: any) {
+      console.error('Advanced AI processing error:', error);
+      setParseErrors(['Failed to generate intelligent questions: ' + error.message]);
       setIsProcessing(false);
     }
   }, []);

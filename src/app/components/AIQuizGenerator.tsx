@@ -466,7 +466,7 @@ When did World War II end?`}
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleGenerate} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button onClick={handleAddToQuiz} className="bg-indigo-600 hover:bg-indigo-700">
               <Sparkles className="w-4 h-4 mr-2" />
               Add {previewQuestions.length} Questions to Quiz
             </Button>

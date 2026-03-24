@@ -19,4 +19,29 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  // Cache busting for development
+  build: {
+    rollupOptions: {
+      output: {
+        // Add hash to filenames for cache busting
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`
+      }
+    }
+  },
+
+  // Force cache invalidation
+  server: {
+    fs: {
+      // Allow serving files from one level up
+      allow: ['..']
+    }
+  },
+
+  // Add timestamp for cache busting
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString())
+  }
 })

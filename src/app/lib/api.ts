@@ -612,8 +612,8 @@ export const api = {
         ? attempts.reduce((sum, a) => sum + a.timeSpent, 0) / totalAttempts
         : 0;
       
-      // Calculate per-question stats
-      const questionStats = quiz.questions.map((q: Question, index: number) => {
+      // Calculate per-question stats (with safety check)
+      const questionStats = (quiz.questions || []).map((q: Question, index: number) => {
         const answersForQuestion = attempts.map(a => a.answers[index]);
         const correctCount = answersForQuestion.filter(
           answer => answer === q.correctAnswer
@@ -668,8 +668,8 @@ export const api = {
       ? attempts.reduce((sum, a) => sum + a.timeSpent, 0) / totalAttempts
       : 0;
     
-    // Calculate per-question stats
-    const questionStats = quiz.questions.map((q: Question, index: number) => {
+    // Calculate per-question stats (with safety check)
+    const questionStats = (quiz.questions || []).map((q: Question, index: number) => {
       const answersForQuestion = attempts.map(a => a.answers[index]);
       const correctCount = answersForQuestion.filter(
         answer => answer === q.correctAnswer

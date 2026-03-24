@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { AIService, AIQuestion } from '../lib/aiService';
+import { ParsedQuestion, parseQuizContent } from '../lib/quizParser';
 
 interface AIQuizGeneratorProps {
   onQuestionsGenerated: (questions: ParsedQuestion[], title?: string) => void;
@@ -133,6 +134,16 @@ A: 1945`;
       setIsProcessing(false);
     }
   }, []);
+
+  const handleAddToQuiz = () => {
+    if (previewQuestions.length === 0) {
+      toast.error('No questions to add');
+      return;
+    }
+
+    onQuestionsGenerated(previewQuestions, detectedTitle);
+    toast.success('Questions added to quiz!');
+  };
 
   const handleGenerate = async () => {
     if (content.trim().length === 0) {

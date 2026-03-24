@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+
+// Use environment variables for deployment
+const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "lqgtjmndgfuyabnghgdy";
+const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxZ3RqbW5kZ2Z1eWFibmdoZ2R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODcwMzgsImV4cCI6MjA4ODI2MzAzOH0.VM22IfOEocjCgV_gDkCnchrKykWJ72u7YLrmrJp7FyM";
 
 // Always use online production mode
 const useLocalMode = false;

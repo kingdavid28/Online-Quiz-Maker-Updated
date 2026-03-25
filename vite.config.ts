@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
 // Get current timestamp for cache busting
-const timestamp = new Date().getTime().toString() + '_vercel_deploy'
+const timestamp = new Date().getTime().toString() + '_ULTIMATE_FIX_' + Date.now()
 
 export default defineConfig({
   plugins: [
@@ -19,11 +19,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-
-  // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
-  assetsInclude: ['**/*.svg', '**/*.csv'],
-
-  // Force new filename for cache busting
   build: {
     rollupOptions: {
       output: {

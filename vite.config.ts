@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
 // Get current timestamp for cache busting
-const timestamp = new Date().getTime().toString() + '_build_fixed_20250325_1540'
+const timestamp = new Date().getTime().toString() + '_CACHE_BUST_FINAL_20250326'
 
 export default defineConfig({
   plugins: [

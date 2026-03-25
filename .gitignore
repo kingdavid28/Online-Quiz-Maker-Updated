@@ -1,1 +1,10 @@
-.vercel
+# Node.js
+node_modules/
+
+# Build output
+/dist/
+
+# Common build artifacts
+*.log
+*.tmp
+*.cache

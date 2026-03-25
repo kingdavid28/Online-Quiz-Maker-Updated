@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
 // Get current timestamp for cache busting
-const timestamp = new Date().getTime().toString()
+const timestamp = new Date().getTime().toString() + '_vercel_deploy'
 
 export default defineConfig({
   plugins: [

@@ -1,4 +1,47 @@
 import { supabase, hasSupabaseCredentials } from './supabase';
+import { QuizValidator, QuizSubmission, classifyError } from './quizValidation';
+import { PrivacyManager, PrivacySettings } from './privacyManager';
+import { ErrorHandler, QuizErrorRecovery, ErrorBoundary } from './errorHandler';
+import { SecurityManager, SecurityMiddleware } from './securityManager';
+import { AdvancedAnalytics } from './advancedAnalytics';
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  userName: string;
+  userEmail: string;
+  answers: (string | number)[];
+  score: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  passed: boolean;
+  timeSpent: number;
+  createdAt: string;
+}
+
+export interface Quiz {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  questions: Question[];
+  settings: QuizSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizAnalytics {
+  totalAttempts: number;
+  averageScore: number;
+  passRate: number;
+  averageTimeSpent: number;
+  questionStats: {
+    questionId: number;
+    correctRate: number;
+    averageTime: number;
+  }[];
+  recentAttempts: QuizAttempt[];
+}
 
 export interface Question {
   type: 'multiple-choice' | 'true-false' | 'short-answer';
@@ -487,7 +530,7 @@ export const api = {
     if (error) throw error;
   },
 
-  // Quiz attempt operations
+  // Quiz attempt operations with enhanced security and validation
   async submitQuizAttempt(
     quizId: string,
     attemptData: {
@@ -495,17 +538,57 @@ export const api = {
       userEmail: string;
       answers: (string | number)[];
       timeSpent: number;
-    }
+    },
+    privacySettings?: PrivacySettings
   ): Promise<QuizAttempt> {
-    if (!hasSupabaseCredentials) {
-      // Get quiz to calculate score
-      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
-      const quiz = quizzes.find((q: Quiz) => q.id === quizId);
-      if (!quiz) throw new Error('Quiz not found');
+    try {
+      // Apply security middleware
+      const securityCheck = await SecurityMiddleware.applySecurityChecks(
+        'submitQuizAttempt',
+        attemptData
+      );
       
+      if (!securityCheck.valid) {
+        throw new Error(securityCheck.error);
+      }
+
+      // Get quiz for validation
+      const quiz = await this.getQuiz(quizId);
+      
+      // Create quiz submission object for validation
+      const submission: QuizSubmission = {
+        quizId,
+        userName: attemptData.userName,
+        userEmail: attemptData.userEmail,
+        answers: attemptData.answers,
+        timeSpent: attemptData.timeSpent,
+        quiz
+      };
+
+      // Validate submission
+      const validation = QuizValidator.validateSubmission(submission);
+      
+      if (!validation.isValid) {
+        const errorMessage = validation.errors.map(e => e.message).join(', ');
+        throw new Error(`Validation failed: ${errorMessage}`);
+      }
+
+      // Apply privacy settings
+      const finalPrivacySettings = privacySettings || PrivacyManager.loadPrivacySettings();
+      
+      // Sanitize input data
+      const sanitizedData = {
+        userName: SecurityManager.sanitizeInput(attemptData.userName, 'username'),
+        userEmail: SecurityManager.sanitizeInput(attemptData.userEmail, 'email'),
+        answers: attemptData.answers.map(answer => 
+          SecurityManager.sanitizeInput(String(answer), 'quiz_answer')
+        ),
+        timeSpent: Math.max(0, Number(attemptData.timeSpent))
+      };
+
       // Calculate score
       let correctAnswers = 0;
-      attemptData.answers.forEach((answer, index) => {
+      sanitizedData.answers.forEach((answer, index) => {
         if (quiz.questions[index] && answer === quiz.questions[index].correctAnswer) {
           correctAnswers++;
         }
@@ -513,68 +596,81 @@ export const api = {
       
       const score = Math.round((correctAnswers / quiz.questions.length) * 100);
       const passed = score >= quiz.settings.passingScore;
-      
+
+      // Create attempt object
       const attempt: QuizAttempt = {
         id: `attempt_${Date.now()}`,
         quizId,
-        userName: attemptData.userName,
-        userEmail: attemptData.userEmail,
-        answers: attemptData.answers,
+        userName: sanitizedData.userName,
+        userEmail: sanitizedData.userEmail,
+        answers: sanitizedData.answers,
         score,
         correctAnswers,
         totalQuestions: quiz.questions.length,
         passed,
-        timeSpent: attemptData.timeSpent,
-        createdAt: new Date().toISOString(),
+        timeSpent: sanitizedData.timeSpent,
+        createdAt: new Date().toISOString()
       };
-      
-      const attempts = localStorageAPI.getAttempts();
-      attempts.push(attempt);
-      localStorageAPI.saveAttempts(attempts);
-      
-      return attempt;
-    }
 
-    // Get quiz to calculate score
-    const { data: quizData, error: quizError } = await supabase
-      .from('quizzes')
-      .select('*')
-      .eq('id', quizId)
-      .single();
+      // Apply privacy settings
+      const processedAttempt = PrivacyManager.applyPrivacySettings(attempt, finalPrivacySettings);
 
-    if (quizError) throw quizError;
-    
-    const quiz = dbRowToQuiz(quizData);
-    
-    // Calculate score
-    let correctAnswers = 0;
-    attemptData.answers.forEach((answer, index) => {
-      if (quiz.questions[index] && answer === quiz.questions[index].correctAnswer) {
-        correctAnswers++;
+      if (!hasSupabaseCredentials) {
+        // Local storage fallback
+        const attempts = localStorageAPI.getAttempts();
+        attempts.push(processedAttempt);
+        localStorageAPI.saveAttempts(attempts);
+        
+        // Sync local attempts when connection is restored
+        QuizErrorRecovery.syncLocalAttempts().catch(console.warn);
+        
+        return processedAttempt;
       }
-    });
-    
-    const score = Math.round((correctAnswers / quiz.questions.length) * 100);
-    const passed = score >= quiz.settings.passingScore;
 
-    const { data, error } = await supabase
-      .from('quiz_attempts')
-      .insert({
-        quiz_id: quizId,
-        user_name: attemptData.userName,
-        user_email: attemptData.userEmail,
-        answers: attemptData.answers,
-        score,
-        correct_answers: correctAnswers,
-        total_questions: quiz.questions.length,
-        passed,
-        time_spent: attemptData.timeSpent,
-      })
-      .select()
-      .single();
+      // Database submission with error handling
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .insert({
+          quiz_id: quizId,
+          user_name: processedAttempt.userName,
+          user_email: processedAttempt.userEmail,
+          answers: processedAttempt.answers,
+          score,
+          correct_answers: correctAnswers,
+          total_questions: quiz.questions.length,
+          passed,
+          time_spent: processedAttempt.timeSpent,
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    return dbRowToAttempt(data);
+      if (error) {
+        // Handle database error with recovery
+        await ErrorHandler.handleError(error, {
+          operation: 'submitQuizAttempt',
+          quizId,
+          userId: processedAttempt.userName
+        }, QuizErrorRecovery.createQuizSubmissionRecoveryActions(
+          quizId,
+          sanitizedData,
+          (attempt) => console.log('Quiz submitted successfully:', attempt),
+          (error) => console.error('Quiz submission failed:', error)
+        ));
+        
+        throw error;
+      }
+
+      return dbRowToAttempt(data);
+    } catch (error) {
+      // Enhanced error handling
+      await ErrorHandler.handleError(error, {
+        operation: 'submitQuizAttempt',
+        quizId,
+        userId: attemptData.userName
+      });
+      
+      throw error;
+    }
   },
 
   async getQuizAttempts(accessToken: string, quizId: string): Promise<QuizAttempt[]> {
@@ -691,5 +787,87 @@ export const api = {
       questionStats,
       recentAttempts: attempts.slice(0, 10),
     };
+  },
+
+  // Advanced analytics with comprehensive insights
+  async getAdvancedQuizAnalytics(accessToken: string, quizId: string): Promise<any> {
+    try {
+      // Get quiz data
+      const quiz = await this.getQuiz(quizId);
+      
+      // Get all attempts
+      const attempts = await this.getQuizAttempts(accessToken, quizId);
+      
+      // Calculate advanced analytics
+      const analytics = await AdvancedAnalytics.calculateQuizAnalytics(quizId, attempts, quiz);
+      
+      return analytics;
+    } catch (error) {
+      await ErrorHandler.handleError(error, {
+        operation: 'getAdvancedQuizAnalytics',
+        quizId
+      });
+      throw error;
+    }
+  },
+
+  // Privacy management methods
+  async updateUserPrivacySettings(settings: PrivacySettings): Promise<void> {
+    try {
+      PrivacyManager.savePrivacySettings(settings);
+    } catch (error) {
+      await ErrorHandler.handleError(error, {
+        operation: 'updateUserPrivacySettings'
+      });
+      throw error;
+    }
+  },
+
+  getUserPrivacySettings(): PrivacySettings {
+    return PrivacyManager.loadPrivacySettings();
+  },
+
+  // Security and compliance methods
+  async exportUserData(userName: string): Promise<any> {
+    try {
+      return PrivacyManager.exportUserData(userName);
+    } catch (error) {
+      await ErrorHandler.handleError(error, {
+        operation: 'exportUserData',
+        userId: userName
+      });
+      throw error;
+    }
+  },
+
+  async deleteUserData(userName: string): Promise<boolean> {
+    try {
+      return PrivacyManager.deleteUserData(userName);
+    } catch (error) {
+      await ErrorHandler.handleError(error, {
+        operation: 'deleteUserData',
+        userId: userName
+      });
+      throw error;
+    }
+  },
+
+  getSecurityStatistics(): any {
+    return SecurityManager.getSecurityStatistics();
+  },
+
+  getErrorStatistics(): any {
+    return ErrorHandler.getErrorStatistics();
+  },
+
+  // Initialize security and error handling
+  initializeSecurity(): void {
+    ErrorBoundary.setup();
+    SecurityManager.cleanup();
+    
+    // Set up periodic cleanup
+    setInterval(() => {
+      SecurityManager.cleanup();
+    }, 5 * 60 * 1000); // Every 5 minutes
   },
 };

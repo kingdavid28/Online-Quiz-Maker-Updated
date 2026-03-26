@@ -1,5 +1,6 @@
 import { ErrorType, classifyError } from './quizValidation';
 import { QuizAttempt, Quiz } from './api';
+import { toast } from 'sonner';
 
 export interface ErrorReport {
   id: string;
@@ -202,8 +203,7 @@ export class ErrorHandler {
    * Show appropriate user feedback
    */
   private static showUserFeedback(errorType: ErrorType, error: any, context: ErrorContext): void {
-    // Import toast dynamically to avoid circular dependencies
-    const { toast } = require('sonner');
+    // Toast is now imported at the top of the file
     
     switch (errorType) {
       case ErrorType.VALIDATION_ERROR:
@@ -319,7 +319,8 @@ export class QuizErrorRecovery {
         type: 'RETRY',
         description: 'Retry quiz submission',
         action: async () => {
-          const { api } = require('./api');
+          // Use dynamic import to avoid circular dependencies
+          const { api } = await import('./api');
           const attempt = await api.submitQuizAttempt(quizId, attemptData);
           onSuccess(attempt);
         },
@@ -360,8 +361,9 @@ export class QuizErrorRecovery {
         type: 'RETRY',
         description: 'Retry loading quiz',
         action: async () => {
-          const { api } = require('./api');
-          const quiz = await api.getQuiz(quizId);
+          const { api } = await import('./api');
+          // Note: This would need the access token, but for error recovery we'll use public quiz
+          const quiz = await api.getPublicQuiz(quizId);
           onSuccess(quiz);
         },
         canRetry: true,
@@ -384,7 +386,6 @@ export class QuizErrorRecovery {
         type: 'USER_ACTION',
         description: 'Quiz not available. Please contact support.',
         action: () => {
-          const { toast } = require('sonner');
           toast.error('Quiz not available. Please contact support.');
         },
         canRetry: false
@@ -449,12 +450,11 @@ export class QuizErrorRecovery {
    */
   private static showConnectionCheck(): void {
     // This would typically show a modal or notification
-    const { toast } = require('sonner');
     toast.info('Checking your internet connection...', {
       duration: 5000,
       action: {
-        label: 'Test Connection',
-        onClick: () => this.testConnection()
+        label: 'Retry',
+        onClick: () => window.location.reload()
       }
     });
   }
@@ -468,10 +468,8 @@ export class QuizErrorRecovery {
         method: 'HEAD',
         mode: 'no-cors'
       });
-      const { toast } = require('sonner');
       toast.success('Connection restored!');
     } catch (error) {
-      const { toast } = require('sonner');
       toast.error('Connection still unavailable. Please check your network.');
     }
   }
@@ -488,7 +486,7 @@ export class QuizErrorRecovery {
         return;
       }
 
-      const { api } = require('./api');
+      const { api } = await import('./api');
       
       for (const attempt of unsyncedAttempts) {
         try {
@@ -509,7 +507,6 @@ export class QuizErrorRecovery {
       // Update local storage
       localStorage.setItem('quizify_local_attempts', JSON.stringify(attempts));
       
-      const { toast } = require('sonner');
       toast.success(`Synced ${unsyncedAttempts.length} quiz attempts`);
     } catch (error) {
       console.error('Failed to sync local attempts:', error);

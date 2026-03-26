@@ -2,12 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 // Required environment variables
 const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-const publicAnonKey = import.meta.env.SUPABASE_ANON_KEY;
+const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Validate environment variables
 if (!projectId || !publicAnonKey) {
   throw new Error(
-    'Missing required Supabase environment variables. Please set VITE_SUPABASE_PROJECT_ID and SUPABASE_ANON_KEY in your environment.'
+    'Missing required Supabase environment variables. Please set VITE_SUPABASE_PROJECT_ID and VITE_SUPABASE_ANON_KEY in your environment.'
   );
 }
 

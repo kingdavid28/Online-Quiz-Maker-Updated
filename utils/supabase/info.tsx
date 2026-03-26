@@ -2,7 +2,7 @@
 
 // Import environment variables securely
 export const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || '';
-export const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const publicAnonKey = import.meta.env.SUPABASE_ANON_KEY || '';
 
 // Validation function to check if credentials are properly configured
 export const validateCredentials = (): boolean => {

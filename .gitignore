@@ -16,6 +16,9 @@ node_modules/
 .env
 .env.local
 .env.production
+.env.development
+.env.*.local
+!.env.example
 
 # IDE files
 .vscode/

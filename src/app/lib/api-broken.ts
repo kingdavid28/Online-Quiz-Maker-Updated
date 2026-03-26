@@ -59,6 +59,74 @@ export interface QuizSettings {
   passingScore: number;
 }
 
+export interface Quiz {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  questions: Question[];
+  settings: QuizSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  userName: string;
+  userEmail: string;
+  answers: (string | number)[];
+  score: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  passed: boolean;
+  timeSpent: number;
+  createdAt: string;
+}
+
+export interface QuizAnalytics {
+  totalAttempts: number;
+  averageScore: number;
+  passRate: number;
+  averageTimeSpent: number;
+  questionStats: {
+    questionIndex: number;
+    questionText: string;
+    correctPercentage: number;
+    totalAnswered: number;
+  }[];
+  recentAttempts: QuizAttempt[];
+}
+
+// Local storage fallback helpers
+const localStorageAPI = {
+  getQuizzes(userId: string): Quiz[] {
+    const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+    return quizzes.filter((q: Quiz) => q.userId === userId);
+  },
+  
+  saveQuizzes(quizzes: Quiz[]) {
+    localStorage.setItem('quizify_quizzes', JSON.stringify(quizzes));
+  },
+  
+  getQuestions(userId: string): Question[] {
+    const questions = JSON.parse(localStorage.getItem('quizify_questions') || '[]');
+    return questions.filter((q: any) => q.userId === userId);
+  },
+  
+  saveQuestions(questions: any[]) {
+    localStorage.setItem('quizify_questions', JSON.stringify(questions));
+  },
+  
+  getAttempts(): QuizAttempt[] {
+    return JSON.parse(localStorage.getItem('quizify_attempts') || '[]');
+  },
+  
+  saveAttempts(attempts: QuizAttempt[]) {
+    localStorage.setItem('quizify_attempts', JSON.stringify(attempts));
+  },
+};
+
 // Helper to convert database row to Quiz object
 function dbRowToQuiz(row: any): Quiz {
   return {
@@ -93,6 +161,33 @@ function dbRowToAttempt(row: any): QuizAttempt {
 export const api = {
   // Quiz operations
   async createQuiz(accessToken: string, quizData: Partial<Quiz>): Promise<Quiz> {
+    if (!hasSupabaseCredentials) {
+      // Local storage fallback
+      const session = JSON.parse(localStorage.getItem('quizify_session') || '{}');
+      const quiz: Quiz = {
+        id: `quiz_${Date.now()}`,
+        userId: session.user?.id || '',
+        title: quizData.title || '',
+        description: quizData.description || '',
+        questions: quizData.questions || [],
+        settings: quizData.settings || {
+          timeLimit: null,
+          shuffleQuestions: false,
+          shuffleAnswers: false,
+          showResults: true,
+          passingScore: 70,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      quizzes.push(quiz);
+      localStorageAPI.saveQuizzes(quizzes);
+      
+      return quiz;
+    }
+
     // Get current user
     const { data: { user } } = await supabase.auth.getUser(accessToken);
     if (!user) throw new Error('Not authenticated');
@@ -128,6 +223,8 @@ export const api = {
 
             if (rpcError) {
               console.error('RPC fallback failed:', rpcError);
+              // RPC doesn't exist yet, create quiz using raw SQL approach
+              // This is a last resort workaround - we'll create an auto-setup RPC
               throw new Error(
                 'Database setup incomplete. The schema cache needs to be reloaded. Please go to Supabase Dashboard → Settings → API → Click "Reload schema", then try again.'
               );
@@ -135,6 +232,7 @@ export const api = {
             
             return dbRowToQuiz(rpcData);
           } catch (rpcErr: any) {
+            // If RPC doesn't exist, provide clear instructions
             console.error('RPC fallback error:', rpcErr);
             throw new Error(
               'Database setup incomplete. Please go to Supabase Dashboard → Settings → API → Click "Reload schema", then try again.'
@@ -156,6 +254,11 @@ export const api = {
   },
 
   async getQuizzes(accessToken: string): Promise<Quiz[]> {
+    if (!hasSupabaseCredentials) {
+      const session = JSON.parse(localStorage.getItem('quizify_session') || '{}');
+      return localStorageAPI.getQuizzes(session.user?.id || '');
+    }
+
     try {
       const { data, error } = await supabase
         .from('quizzes')
@@ -191,6 +294,13 @@ export const api = {
   },
 
   async getQuiz(accessToken: string, quizId: string): Promise<Quiz> {
+    if (!hasSupabaseCredentials) {
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      const quiz = quizzes.find((q: Quiz) => q.id === quizId);
+      if (!quiz) throw new Error('Quiz not found');
+      return quiz;
+    }
+
     try {
       const { data, error } = await supabase
         .from('quizzes')
@@ -226,6 +336,13 @@ export const api = {
   },
 
   async getPublicQuiz(quizId: string): Promise<Quiz> {
+    if (!hasSupabaseCredentials) {
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      const quiz = quizzes.find((q: Quiz) => q.id === quizId);
+      if (!quiz) throw new Error('Quiz not found');
+      return quiz;
+    }
+
     // Use RPC function for public access (with questions from separate table)
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_quiz', {
@@ -246,6 +363,21 @@ export const api = {
   },
 
   async updateQuiz(accessToken: string, quizId: string, updates: Partial<Quiz>): Promise<Quiz> {
+    if (!hasSupabaseCredentials) {
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      const index = quizzes.findIndex((q: Quiz) => q.id === quizId);
+      if (index === -1) throw new Error('Quiz not found');
+      
+      quizzes[index] = {
+        ...quizzes[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      localStorageAPI.saveQuizzes(quizzes);
+      return quizzes[index];
+    }
+
     try {
       const updateData: any = {};
       if (updates.title !== undefined) updateData.title = updates.title;
@@ -301,6 +433,13 @@ export const api = {
   },
 
   async deleteQuiz(accessToken: string, quizId: string): Promise<void> {
+    if (!hasSupabaseCredentials) {
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      const filtered = quizzes.filter((q: Quiz) => q.id !== quizId);
+      localStorageAPI.saveQuizzes(filtered);
+      return;
+    }
+
     const { error } = await supabase
       .from('quizzes')
       .delete()
@@ -311,6 +450,21 @@ export const api = {
 
   // Question bank operations
   async saveQuestion(accessToken: string, question: Question): Promise<Question> {
+    if (!hasSupabaseCredentials) {
+      const session = JSON.parse(localStorage.getItem('quizify_session') || '{}');
+      const questionWithId = {
+        ...question,
+        id: `question_${Date.now()}`,
+        userId: session.user?.id || '',
+      };
+      
+      const questions = JSON.parse(localStorage.getItem('quizify_questions') || '[]');
+      questions.push(questionWithId);
+      localStorageAPI.saveQuestions(questions);
+      
+      return questionWithId;
+    }
+
     const { data: { user } } = await supabase.auth.getUser(accessToken);
     if (!user) throw new Error('Not authenticated');
 
@@ -339,6 +493,11 @@ export const api = {
   },
 
   async getQuestions(accessToken: string): Promise<Question[]> {
+    if (!hasSupabaseCredentials) {
+      const session = JSON.parse(localStorage.getItem('quizify_session') || '{}');
+      return localStorageAPI.getQuestions(session.user?.id || '');
+    }
+
     const { data, error } = await supabase
       .from('questions')
       .select('*')
@@ -356,6 +515,13 @@ export const api = {
   },
 
   async deleteQuestion(accessToken: string, questionId: string): Promise<void> {
+    if (!hasSupabaseCredentials) {
+      const questions = JSON.parse(localStorage.getItem('quizify_questions') || '[]');
+      const filtered = questions.filter((q: any) => q.id !== questionId);
+      localStorageAPI.saveQuestions(filtered);
+      return;
+    }
+
     const { error } = await supabase
       .from('questions')
       .delete()
@@ -383,7 +549,7 @@ export const api = {
       );
       
       if (!securityCheck.valid) {
-        throw new Error(securityCheck.reason || 'Security check failed');
+        throw new Error(securityCheck.error);
       }
 
       // Get quiz for validation
@@ -395,6 +561,7 @@ export const api = {
         userName: attemptData.userName,
         userEmail: attemptData.userEmail,
         answers: attemptData.answers,
+        timeSpent: attemptData.timeSpent,
         quiz
       };
 
@@ -448,6 +615,18 @@ export const api = {
       // Apply privacy settings
       const processedAttempt = PrivacyManager.applyPrivacySettings(attempt, finalPrivacySettings);
 
+      if (!hasSupabaseCredentials) {
+        // Local storage fallback
+        const attempts = localStorageAPI.getAttempts();
+        attempts.push(processedAttempt);
+        localStorageAPI.saveAttempts(attempts);
+        
+        // Sync local attempts when connection is restored
+        QuizErrorRecovery.syncLocalAttempts().catch(console.warn);
+        
+        return processedAttempt;
+      }
+
       // Database submission with error handling
       const { data, error } = await supabase
         .from('quiz_attempts')
@@ -495,6 +674,11 @@ export const api = {
   },
 
   async getQuizAttempts(accessToken: string, quizId: string): Promise<QuizAttempt[]> {
+    if (!hasSupabaseCredentials) {
+      const attempts = localStorageAPI.getAttempts();
+      return attempts.filter(a => a.quizId === quizId);
+    }
+
     const { data, error } = await supabase
       .from('quiz_attempts')
       .select('*')
@@ -506,6 +690,49 @@ export const api = {
   },
 
   async getQuizAnalytics(accessToken: string, quizId: string): Promise<QuizAnalytics> {
+    if (!hasSupabaseCredentials) {
+      const attempts = localStorageAPI.getAttempts().filter(a => a.quizId === quizId);
+      const quizzes = JSON.parse(localStorage.getItem('quizify_quizzes') || '[]');
+      const quiz = quizzes.find((q: Quiz) => q.id === quizId);
+      
+      if (!quiz) throw new Error('Quiz not found');
+      
+      const totalAttempts = attempts.length;
+      const averageScore = totalAttempts > 0
+        ? attempts.reduce((sum, a) => sum + a.score, 0) / totalAttempts
+        : 0;
+      const passRate = totalAttempts > 0
+        ? (attempts.filter(a => a.passed).length / totalAttempts) * 100
+        : 0;
+      const averageTimeSpent = totalAttempts > 0
+        ? attempts.reduce((sum, a) => sum + a.timeSpent, 0) / totalAttempts
+        : 0;
+      
+      // Calculate per-question stats (with safety check)
+      const questionStats = (quiz.questions || []).map((q: Question, index: number) => {
+        const answersForQuestion = attempts.map(a => a.answers[index]);
+        const correctCount = answersForQuestion.filter(
+          answer => answer === q.correctAnswer
+        ).length;
+        
+        return {
+          questionIndex: index,
+          questionText: q.question,
+          correctPercentage: totalAttempts > 0 ? (correctCount / totalAttempts) * 100 : 0,
+          totalAnswered: totalAttempts,
+        };
+      });
+      
+      return {
+        totalAttempts,
+        averageScore,
+        passRate,
+        averageTimeSpent,
+        questionStats,
+        recentAttempts: attempts.slice(-10).reverse(),
+      };
+    }
+
     // Get quiz
     const { data: quizData, error: quizError } = await supabase
       .from('quizzes')
@@ -536,18 +763,19 @@ export const api = {
     const averageTimeSpent = totalAttempts > 0
       ? attempts.reduce((sum, a) => sum + a.timeSpent, 0) / totalAttempts
       : 0;
-
-    // Calculate question statistics
-    const questionStats = quiz.questions.map((q, index) => {
+    
+    // Calculate per-question stats (with safety check)
+    const questionStats = (quiz.questions || []).map((q: Question, index: number) => {
       const answersForQuestion = attempts.map(a => a.answers[index]);
       const correctCount = answersForQuestion.filter(
         answer => answer === q.correctAnswer
       ).length;
       
       return {
-        questionId: index,
-        correctRate: totalAttempts > 0 ? (correctCount / totalAttempts) * 100 : 0,
-        averageTime: 0, // Would need more detailed timing data
+        questionIndex: index,
+        questionText: q.question,
+        correctPercentage: totalAttempts > 0 ? (correctCount / totalAttempts) * 100 : 0,
+        totalAnswered: totalAttempts,
       };
     });
     
@@ -570,6 +798,7 @@ export const api = {
       // Get all attempts
       const attempts = await this.getQuizAttempts(accessToken, quizId);
       
+      // Calculate advanced analytics
       const analytics = await AdvancedAnalytics.calculateQuizAnalytics(quizId, attempts, quiz);
       
       return analytics;

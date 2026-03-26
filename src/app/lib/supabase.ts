@@ -18,5 +18,3 @@ const useLocalMode = false;
 export const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey);
 
 export const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-a728d49f`;
-
-export { hasSupabaseCredentials };

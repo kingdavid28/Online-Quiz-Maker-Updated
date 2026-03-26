@@ -1,4 +1,4 @@
-import { supabase, hasSupabaseCredentials } from './supabase';
+import { supabase } from './supabase';
 import { QuizValidator, QuizSubmission, classifyError } from './quizValidation';
 import { PrivacyManager, PrivacySettings } from './privacyManager';
 import { ErrorHandler, QuizErrorRecovery, ErrorBoundary } from './errorHandler';

@@ -1,4 +1,4 @@
-import { supabase, hasSupabaseCredentials } from './supabase';
+import { supabase } from './supabase';
 
 export interface User {
   id: string;
@@ -81,9 +81,6 @@ const localStorageAuth = {
 
 export const authService = {
   async signup(email: string, password: string, name: string) {
-    if (!hasSupabaseCredentials) {
-      return localStorageAuth.signup(email, password, name);
-    }
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -131,9 +128,6 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
-    if (!hasSupabaseCredentials) {
-      return localStorageAuth.login(email, password);
-    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -165,18 +159,12 @@ export const authService = {
   },
 
   async logout() {
-    if (!hasSupabaseCredentials) {
-      return localStorageAuth.logout();
-    }
 
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   },
 
   async getSession() {
-    if (!hasSupabaseCredentials) {
-      return localStorageAuth.getSession();
-    }
 
     const { data, error } = await supabase.auth.getSession();
     
@@ -189,10 +177,6 @@ export const authService = {
   },
 
   async getCurrentUser(accessToken: string) {
-    if (!hasSupabaseCredentials) {
-      const session = localStorageAuth.getSession();
-      return (await session).user;
-    }
 
     const { data, error } = await supabase.auth.getUser(accessToken);
     

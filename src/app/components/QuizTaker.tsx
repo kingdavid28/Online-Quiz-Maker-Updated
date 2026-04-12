@@ -19,7 +19,7 @@ export function QuizTaker() {
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<(string | number)[]>([]);
+  const [answers, setAnswers] = useState<(string | number | null)[]>([]);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,10 +51,19 @@ export function QuizTaker() {
   const loadQuiz = async () => {
     if (!id) return;
 
+    console.log('Loading quiz with ID:', id);
     try {
       const data = await api.getPublicQuiz(id);
+      console.log('Quiz data loaded:', data);
       setQuiz(data);
-      setAnswers(new Array(data.questions.length).fill(''));
+      // Initialize answers with appropriate defaults for each question type
+      const defaultAnswers = data.questions.map(q => {
+        if (q.type === 'true_false' || q.type === 'true-false') return null;
+        if (q.type === 'multiple_choice' || q.type === 'multiple-choice') return null;
+        if (q.type === 'short_answer' || q.type === 'short-answer') return '';
+        return null; // Default for unknown types
+      });
+      setAnswers(defaultAnswers);
     } catch (error) {
       toast.error('Quiz not found');
       console.error('Error loading quiz:', error);
@@ -69,6 +78,14 @@ export function QuizTaker() {
       return;
     }
     
+    // Ensure userName is a real name, not a system ID
+    const cleanedName = userName.trim();
+    if (cleanedName.includes('user_') || cleanedName.length < 2) {
+      toast.error('Please enter a real name (at least 2 characters)');
+      return;
+    }
+    
+    console.log('Starting quiz with user:', cleanedName);
     setStarted(true);
     setStartTime(Date.now());
     
@@ -98,6 +115,8 @@ export function QuizTaker() {
   const handleSubmit = async () => {
     if (!quiz) return;
 
+    console.log('Submitting quiz with quiz.id:', quiz.id);
+    console.log('Full quiz object:', quiz);
     setSubmitting(true);
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
@@ -187,13 +206,16 @@ export function QuizTaker() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="userName">Your Name *</Label>
+                <Label htmlFor="userName" className="text-base font-medium">Your Full Name *</Label>
                 <Input
                   id="userName"
-                  placeholder="Enter your name"
+                  placeholder="Please enter your full name (e.g., John Smith)"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
+                  className="text-base h-11"
+                  required
                 />
+                <p className="text-sm text-gray-500">This will be displayed in the analytics report</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="userEmail">Email (optional)</Label>
@@ -247,7 +269,7 @@ export function QuizTaker() {
             <CardTitle className="text-xl">{currentQuestion.question}</CardTitle>
           </CardHeader>
           <CardContent>
-            {currentQuestion.type === 'multiple-choice' && (
+            {(currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'multiple-choice') && (
               <RadioGroup
                 value={answers[currentQuestionIndex]?.toString()}
                 onValueChange={(value) => handleAnswer(parseInt(value))}
@@ -269,7 +291,7 @@ export function QuizTaker() {
               </RadioGroup>
             )}
 
-            {currentQuestion.type === 'true-false' && (
+            {(currentQuestion.type === 'true_false' || currentQuestion.type === 'true-false') && (
               <RadioGroup
                 value={answers[currentQuestionIndex]?.toString()}
                 onValueChange={handleAnswer}
@@ -285,13 +307,30 @@ export function QuizTaker() {
               </RadioGroup>
             )}
 
-            {currentQuestion.type === 'short-answer' && (
+            {(currentQuestion.type === 'short_answer' || currentQuestion.type === 'short-answer') && (
               <Textarea
                 placeholder="Type your answer here..."
                 value={answers[currentQuestionIndex]?.toString() || ''}
                 onChange={(e) => handleAnswer(e.target.value)}
                 rows={4}
               />
+            )}
+
+            {/* Fallback for unknown question types */}
+            {!['multiple_choice', 'true_false', 'short_answer', 'multiple-choice', 'true-false', 'short-answer'].includes(currentQuestion.type) && (
+              <div className="space-y-3">
+                <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded">
+                  <strong>Unknown question type: "{currentQuestion.type}"</strong>
+                  <br />
+                  Showing default text input:
+                </div>
+                <Textarea
+                  placeholder="Type your answer here..."
+                  value={answers[currentQuestionIndex]?.toString() || ''}
+                  onChange={(e) => handleAnswer(e.target.value)}
+                  rows={4}
+                />
+              </div>
             )}
           </CardContent>
         </Card>

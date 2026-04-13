@@ -212,14 +212,15 @@ export class SecurityManager {
    * Sanitize email addresses
    */
   private static sanitizeEmail(input: string): string {
-    // Basic email validation and sanitization
+    // Basic email validation and sanitization - very permissive for quiz app
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const sanitized = input.toLowerCase().trim();
     
-    if (!emailPattern.test(sanitized)) {
-      this.logSecurityViolation('INVALID_INPUT', 'LOW', 'Invalid email format');
-      return '';
-    }
+    // Skip email validation for quiz app - just sanitize
+    // if (sanitized && !emailPattern.test(sanitized)) {
+    //   this.logSecurityViolation('INVALID_INPUT', 'LOW', 'Invalid email format');
+    //   return '';
+    // }
     
     return sanitized;
   }

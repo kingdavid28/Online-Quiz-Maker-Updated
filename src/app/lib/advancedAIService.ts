@@ -50,14 +50,28 @@ export class AdvancedAIService {
       // Simulate AI processing time
       await this.simulateProcessing(request.questionCount);
       
-      const questions: AIQuestion[] = [];
+      // Get topic data for context-aware generation
       const topicData = this.getTopicData(request.topic);
+      
+      // Use provided context if available, otherwise use topic data
+      const contextData = request.context || topicData;
+      
+      console.log('Generating questions for topic:', request.topic);
+      console.log('Using context:', request.context ? 'Provided content' : 'Knowledge base');
+      
+      const questions: AIQuestion[] = [];
       
       for (let i = 0; i < request.questionCount; i++) {
         const questionType = this.selectQuestionType(request.questionTypes, i, request.questionCount);
         const difficulty = this.adjustDifficulty(request.difficulty, i, request.questionCount);
         
-        const question = this.generateIntelligentQuestion(topicData, questionType, difficulty, i);
+        const question = this.generateIntelligentQuestion(
+          contextData,
+          questionType,
+          difficulty,
+          i
+        );
+        
         questions.push(question);
       }
       

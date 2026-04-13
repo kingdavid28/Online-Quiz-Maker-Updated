@@ -27,6 +27,7 @@ import {
 import { toast } from 'sonner';
 import { QuestionEditor } from './QuestionEditor';
 import { SchemaErrorModal } from './SchemaErrorModal';
+import { QuestionBankBrowser } from './QuestionBankBrowser';
 
 export function QuizBuilder() {
   const { id } = useParams();
@@ -102,6 +103,17 @@ export function QuizBuilder() {
       if (q.type === 'multiple-choice' && (!q.options || q.options.length < 2)) {
         toast.error(`Question ${i + 1} needs at least 2 options`);
         return;
+      }
+      if (q.type === 'multiple-choice') {
+        // Validate that correct answer is set and is a valid option
+        if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer === '') {
+          toast.error(`Question ${i + 1}: Please select the correct answer by clicking the radio button`);
+          return;
+        }
+        if (typeof q.correctAnswer === 'number' && (!q.options || !q.options[q.correctAnswer])) {
+          toast.error(`Question ${i + 1}: Correct answer index ${q.correctAnswer} is out of range for available options`);
+          return;
+        }
       }
     }
 
@@ -268,6 +280,18 @@ export function QuizBuilder() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-semibold">Questions ({questions.length})</h3>
                   <div className="flex gap-2 flex-wrap">
+                    <QuestionBankBrowser 
+                      onQuestionsSelected={(selectedQuestions) => {
+                        // Generate unique IDs for the selected questions
+                        const questionsWithIds = selectedQuestions.map(q => ({
+                          ...q,
+                          id: `bank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                        }));
+                        setQuestions([...questions, ...questionsWithIds]);
+                        toast.success(`Added ${selectedQuestions.length} questions from bank`);
+                      }}
+                      maxQuestions={20 - questions.length}
+                    />
                     <Button 
                       variant="default"
                       size="sm"
@@ -280,7 +304,7 @@ export function QuizBuilder() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => addQuestion('multiple-choice')}
+                      onClick={() => addQuestion('multiple_choice')}
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Multiple Choice
@@ -288,7 +312,7 @@ export function QuizBuilder() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => addQuestion('true-false')}
+                      onClick={() => addQuestion('true_false')}
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       True/False
@@ -296,7 +320,7 @@ export function QuizBuilder() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => addQuestion('short-answer')}
+                      onClick={() => addQuestion('short_answer')}
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Short Answer

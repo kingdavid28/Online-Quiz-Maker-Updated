@@ -143,7 +143,7 @@ export function QuizResults() {
             Go to Home
           </Button>
           <Button 
-            onClick={() => window.location.reload()} 
+            onClick={() => navigate(`/quiz/${quiz.id}`)} 
             variant="outline"
             className="flex-1"
             size="lg"

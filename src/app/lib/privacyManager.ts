@@ -43,7 +43,7 @@ export interface PrivacyPolicy {
 export class PrivacyManager {
   private static readonly DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
     allowAnalytics: true,
-    allowPersonalInfo: false,
+    allowPersonalInfo: true, // Changed to true to allow real names
     allowDataSharing: false,
     retentionDays: 365,
     allowPerformanceTracking: true,

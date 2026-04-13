@@ -90,10 +90,61 @@ export function QuizAnalytics() {
     return `${mins}m ${secs}s`;
   };
 
+  // Helper function to format user name for better readability
+  const formatUserName = (userName: string) => {
+    // Handle empty or null names
+    if (!userName || userName.trim() === '') {
+      return 'Unknown User';
+    }
+    
+    const trimmed = userName.trim();
+    
+    // If it's a system-generated ID, create a friendly display name
+    if (trimmed.includes('user_')) {
+      const parts = trimmed.split('_');
+      if (parts.length >= 2) {
+        const idPart = parts[1];
+        // Take first 6 characters and add a friendly prefix
+        const shortId = idPart.substring(0, 6);
+        return `Guest ${shortId}`;
+      }
+    }
+    
+    // Check for hex-based system IDs
+    if (trimmed.match(/^[a-f0-9]{8,}/i)) {
+      return `Guest ${trimmed.substring(0, 6)}`;
+    }
+    
+    // For real names, ensure proper formatting
+    // Only apply capitalization if it looks like a real name (not all same character)
+    if (!trimmed.includes('user_') && !trimmed.match(/^[a-f0-9]{8,}/i)) {
+      // Check if it's likely a real name (has vowels and varied characters)
+      const hasVowels = /[aeiou]/i.test(trimmed);
+      const hasVariedChars = !/^[a-zA-Z]{3,}$/.test(trimmed) || 
+        new Set(trimmed.toLowerCase()).size > 2;
+      
+      if (hasVowels && hasVariedChars) {
+        // Apply proper capitalization for real names
+        return trimmed
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      }
+    }
+    
+    // If name is too long, truncate it
+    if (trimmed.length > 20) {
+      return trimmed.substring(0, 17) + '...';
+    }
+    
+    // Return as-is if it's already reasonable
+    return trimmed;
+  };
+
   // Prepare chart data
   const questionPerformanceData = analytics.questionStats.map((stat, index) => ({
     name: `Q${index + 1}`,
-    percentage: Math.round(stat.correctPercentage),
+    percentage: isNaN(stat.correctPercentage) || !isFinite(stat.correctPercentage) ? 0 : Math.round(stat.correctPercentage),
   }));
 
   const passFailData = [
@@ -110,92 +161,102 @@ export function QuizAnalytics() {
     }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/dashboard" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Link 
+              to="/dashboard" 
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
               <span>Back to Dashboard</span>
             </Link>
-            <Link to={`/quiz/${id}/edit`}>
-              <Button variant="outline">Edit Quiz</Button>
-            </Link>
           </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{quiz.title}</h1>
-          <p className="text-gray-600">Analytics and Performance Report</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            {quiz?.title || 'Quiz'} Analytics
+          </h1>
+          <p className="text-gray-600">
+            Performance report and analytics overview
+          </p>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            icon={<Users className="w-8 h-8 text-indigo-600" />}
-            title="Total Attempts"
-            value={analytics.totalAttempts.toString()}
-          />
-          <StatCard
-            icon={<TrendingUp className="w-8 h-8 text-green-600" />}
-            title="Average Score"
-            value={`${analytics.averageScore}%`}
-          />
-          <StatCard
-            icon={<Award className="w-8 h-8 text-yellow-600" />}
-            title="Pass Rate"
-            value={`${analytics.passRate}%`}
-          />
-          <StatCard
-            icon={<Clock className="w-8 h-8 text-purple-600" />}
-            title="Avg. Time"
-            value={formatTime(analytics.averageTimeSpent)}
-          />
-        </div>
-
-        {analytics.totalAttempts === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No attempts yet</h3>
-              <p className="text-gray-600 mb-6">Share your quiz to start collecting data!</p>
-              <Button onClick={async () => {
-                const url = `${window.location.origin}/take/${id}`;
-                
-                try {
-                  // Try modern clipboard API first
-                  await navigator.clipboard.writeText(url);
-                  toast.success('Share link copied to clipboard!');
-                } catch (err) {
-                  // Fallback for browsers/contexts where clipboard API is blocked
-                  try {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = url;
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-999999px';
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    toast.success('Share link copied to clipboard!');
-                  } catch (fallbackErr) {
-                    // If all else fails, show the URL so user can copy manually
-                    toast.info(`Share link: ${url}`, { duration: 10000 });
-                  }
-                }
-              }}>
-                Copy Share Link
-              </Button>
-            </CardContent>
-          </Card>
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
         ) : (
-          <>
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="space-y-6 md:space-y-8">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <Card>
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Attempts</p>
+                      <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                        {analytics.totalAttempts}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                      <span className="text-indigo-600 font-bold">📊</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Average Score</p>
+                      <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                        {Math.round(analytics.averageScore)}%
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 font-bold">✓</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Pass Rate</p>
+                      <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                        {Math.round(analytics.passRate)}%
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-bold">🎯</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Avg. Time</p>
+                      <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                        {formatTime(Math.round(analytics.averageTimeSpent))}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <span className="text-yellow-600 font-bold">⏱️</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               {/* Question Performance */}
               <Card>
                 <CardHeader>
@@ -203,15 +264,17 @@ export function QuizAnalytics() {
                   <CardDescription>Percentage of correct answers per question</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={questionPerformanceData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip formatter={(value) => `${value}%`} />
-                      <Bar dataKey="percentage" fill="#6366f1" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={questionPerformanceData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip formatter={(value) => `${value}%`} />
+                        <Bar dataKey="percentage" fill="#6366f1" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -222,88 +285,75 @@ export function QuizAnalytics() {
                   <CardDescription>Overall pass rate for this quiz</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={passFailData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {passFailData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value}%`} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={passFailData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value }) => `${name}: ${value}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {passFailData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Recent Scores Trend */}
-            {recentScoresData.length > 0 && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Recent Score Trends</CardTitle>
-                  <CardDescription>Last 10 quiz attempts</CardDescription>
-                </CardHeader>
-                <CardContent>
+            {/* Recent Score Trends */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Score Trends</CardTitle>
+                <CardDescription>Last 10 quiz attempts</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="w-full overflow-x-auto">
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={recentScoresData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis domain={[0, 100]} />
                       <Tooltip formatter={(value) => `${value}%`} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="#6366f1" 
-                        strokeWidth={2}
-                        dot={{ fill: '#6366f1', r: 4 }}
-                      />
+                      <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Question Difficulty Analysis */}
-            <Card className="mb-6">
+            <Card>
               <CardHeader>
                 <CardTitle>Question Difficulty Analysis</CardTitle>
                 <CardDescription>Identify challenging questions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {analytics.questionStats.map((stat, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
-                          Question {index + 1}
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="font-medium">Question {index + 1}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-indigo-600 h-2 rounded-full"
+                            style={{
+                              width: `${isNaN(stat.correctPercentage) || !isFinite(stat.correctPercentage) ? 0 : Math.round(stat.correctPercentage)}%`
+                            }}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-medium w-12 text-right">
+                          {isNaN(stat.correctPercentage) || !isFinite(stat.correctPercentage) ? 0 : Math.round(stat.correctPercentage)}%
                         </span>
-                        <span className={`text-sm font-semibold ${
-                          stat.correctPercentage >= 70 ? 'text-green-600' :
-                          stat.correctPercentage >= 40 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {Math.round(stat.correctPercentage)}% correct
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-1">{stat.questionText}</p>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            stat.correctPercentage >= 70 ? 'bg-green-500' :
-                            stat.correctPercentage >= 40 ? 'bg-yellow-500' :
-                            'bg-red-500'
-                          }`}
-                          style={{ width: `${stat.correctPercentage}%` }}
-                        />
                       </div>
                     </div>
                   ))}
@@ -319,7 +369,7 @@ export function QuizAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-[600px]">
                     <thead className="border-b">
                       <tr className="text-left text-sm text-gray-600">
                         <th className="pb-3 font-medium">Name</th>
@@ -332,7 +382,16 @@ export function QuizAnalytics() {
                     <tbody className="text-sm">
                       {analytics.recentAttempts.map((attempt) => (
                         <tr key={attempt.id} className="border-b last:border-0">
-                          <td className="py-3">{attempt.userName}</td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-medium text-indigo-600">
+                                  {formatUserName(attempt.userName).charAt(0)}
+                                </span>
+                              </div>
+                              <span className="font-medium">{formatUserName(attempt.userName)}</span>
+                            </div>
+                          </td>
                           <td className="py-3">
                             <span className="font-semibold">{attempt.score}%</span>
                           </td>
@@ -356,7 +415,7 @@ export function QuizAnalytics() {
                 </div>
               </CardContent>
             </Card>
-          </>
+          </div>
         )}
       </div>
     </div>

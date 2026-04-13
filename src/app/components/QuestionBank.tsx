@@ -26,7 +26,7 @@ export function QuestionBank() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newQuestion, setNewQuestion] = useState<Question>({
-    type: 'multiple-choice',
+    type: 'multiple_choice',
     question: '',
     options: ['', ''],
     correctAnswer: 0,
@@ -61,26 +61,45 @@ export function QuestionBank() {
   };
 
   const handleSaveQuestion = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      toast.error('Please login to save questions');
+      navigate('/login');
+      return;
+    }
 
     if (!newQuestion.question.trim()) {
       toast.error('Please enter a question');
       return;
     }
 
-    if (newQuestion.type === 'multiple-choice' && (!newQuestion.options || newQuestion.options.length < 2)) {
+    if (newQuestion.type === 'multiple_choice' && (!newQuestion.options || newQuestion.options.length < 2)) {
       toast.error('Please add at least 2 options');
       return;
     }
 
     try {
+      console.log('Saving question with data:', {
+        type: newQuestion.type,
+        question: newQuestion.question,
+        options: newQuestion.options,
+        correctAnswer: newQuestion.correctAnswer,
+        points: newQuestion.points
+      });
+      
       const saved = await api.saveQuestion(accessToken, newQuestion);
       setQuestions([saved, ...questions]);
       toast.success('Question saved to bank!');
       setDialogOpen(false);
       resetNewQuestion();
-    } catch (error) {
-      toast.error('Failed to save question');
+    } catch (error: any) {
+      if (error.message?.includes('Refresh Token') || error.message?.includes('authentication')) {
+        toast.error('Session expired. Please login again.');
+        navigate('/login');
+      } else if (error.message?.includes('question_type_check')) {
+        toast.error('Invalid question type. Please select a valid question type.');
+      } else {
+        toast.error('Failed to save question');
+      }
       console.error('Error saving question:', error);
     }
   };
@@ -100,7 +119,7 @@ export function QuestionBank() {
 
   const resetNewQuestion = () => {
     setNewQuestion({
-      type: 'multiple-choice',
+      type: 'multiple_choice',
       question: '',
       options: ['', ''],
       correctAnswer: 0,
@@ -109,7 +128,7 @@ export function QuestionBank() {
   };
 
   const addOption = () => {
-    if (newQuestion.type === 'multiple-choice') {
+    if (newQuestion.type === 'multiple_choice') {
       setNewQuestion({
         ...newQuestion,
         options: [...(newQuestion.options || []), ''],
@@ -118,7 +137,7 @@ export function QuestionBank() {
   };
 
   const updateOption = (index: number, value: string) => {
-    if (newQuestion.type === 'multiple-choice') {
+    if (newQuestion.type === 'multiple_choice') {
       const options = [...(newQuestion.options || [])];
       options[index] = value;
       setNewQuestion({ ...newQuestion, options });
@@ -126,7 +145,7 @@ export function QuestionBank() {
   };
 
   const removeOption = (index: number) => {
-    if (newQuestion.type === 'multiple-choice') {
+    if (newQuestion.type === 'multiple_choice') {
       const options = [...(newQuestion.options || [])];
       options.splice(index, 1);
       setNewQuestion({ ...newQuestion, options });
@@ -195,23 +214,23 @@ export function QuestionBank() {
                       setNewQuestion({
                         type,
                         question: '',
-                        correctAnswer: type === 'true-false' ? 'true' : type === 'multiple-choice' ? 0 : '',
-                        options: type === 'multiple-choice' ? ['', ''] : undefined,
+                        correctAnswer: type === 'true_false' ? 'true' : type === 'multiple_choice' ? 0 : '',
+                        options: type === 'multiple_choice' ? ['', ''] : undefined,
                         points: 1,
                       });
                     }}
                   >
                     <div className="flex gap-4">
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="multiple-choice" id="mc" />
+                        <RadioGroupItem value="multiple_choice" id="mc" />
                         <Label htmlFor="mc">Multiple Choice</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="true-false" id="tf" />
+                        <RadioGroupItem value="true_false" id="tf" />
                         <Label htmlFor="tf">True/False</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="short-answer" id="sa" />
+                        <RadioGroupItem value="short_answer" id="sa" />
                         <Label htmlFor="sa">Short Answer</Label>
                       </div>
                     </div>
@@ -229,7 +248,7 @@ export function QuestionBank() {
                 </div>
 
                 {/* Multiple Choice Options */}
-                {newQuestion.type === 'multiple-choice' && (
+                {newQuestion.type === 'multiple_choice' && (
                   <div className="space-y-3">
                     <Label>Answer Options</Label>
                     <RadioGroup
@@ -261,7 +280,7 @@ export function QuestionBank() {
                 )}
 
                 {/* True/False */}
-                {newQuestion.type === 'true-false' && (
+                {newQuestion.type === 'true_false' && (
                   <div className="space-y-2">
                     <Label>Correct Answer</Label>
                     <RadioGroup
@@ -281,7 +300,7 @@ export function QuestionBank() {
                 )}
 
                 {/* Short Answer */}
-                {newQuestion.type === 'short-answer' && (
+                {newQuestion.type === 'short_answer' && (
                   <div className="space-y-2">
                     <Label>Correct Answer</Label>
                     <Input
@@ -329,9 +348,9 @@ export function QuestionBank() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded">
-                          {question.type === 'multiple-choice' && 'Multiple Choice'}
-                          {question.type === 'true-false' && 'True/False'}
-                          {question.type === 'short-answer' && 'Short Answer'}
+                          {question.type === 'multiple_choice' && 'Multiple Choice'}
+                          {question.type === 'true_false' && 'True/False'}
+                          {question.type === 'short_answer' && 'Short Answer'}
                         </span>
                       </div>
                       <CardTitle className="text-lg">{question.question}</CardTitle>
@@ -347,7 +366,7 @@ export function QuestionBank() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {question.type === 'multiple-choice' && (
+                  {question.type === 'multiple_choice' && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-700 mb-2">Options:</p>
                       {question.options?.map((option, index) => (
@@ -365,7 +384,7 @@ export function QuestionBank() {
                       ))}
                     </div>
                   )}
-                  {question.type === 'true-false' && (
+                  {question.type === 'true_false' && (
                     <p className="text-sm">
                       <span className="font-medium">Correct Answer:</span>{' '}
                       <span className="text-green-700 font-semibold">
@@ -373,7 +392,7 @@ export function QuestionBank() {
                       </span>
                     </p>
                   )}
-                  {question.type === 'short-answer' && (
+                  {question.type === 'short_answer' && (
                     <p className="text-sm">
                       <span className="font-medium">Correct Answer:</span>{' '}
                       <span className="text-green-700 font-semibold">{question.correctAnswer}</span>

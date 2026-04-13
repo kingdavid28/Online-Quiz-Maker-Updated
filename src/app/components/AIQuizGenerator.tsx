@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { AdvancedAIService } from '../lib/advancedAIService';
+import { SmartAIService } from '../lib/smartAIService';
 import { ParsedQuestion } from '../lib/quizParser';
 
 interface AIQuizGeneratorProps {
@@ -101,18 +101,21 @@ A: 1945`;
     setParseErrors([]);
     
     try {
-      // Extract topic from content for AI generation
-      const topicMatch = text.match(/topic:\s*(.+)/i);
-      const topic = topicMatch ? topicMatch[1] : text.trim().split('\n')[0] || 'General Knowledge';
+      // Use current content if available, otherwise use example
+      const contentToUse = text.trim() || EXAMPLE_CONTENT;
       
-      // Use Advanced AI Service for intelligent generation
-      const aiService = AdvancedAIService.getInstance();
+      // Extract topic from content for AI generation
+      const topicMatch = contentToUse.match(/topic:\s*(.+)/i);
+      const topic = topicMatch ? topicMatch[1] : contentToUse.trim().split('\n')[0] || 'General Knowledge';
+      
+      // Use Smart AI Service for robust generation
+      const aiService = SmartAIService.getInstance();
       const questions = await aiService.generateQuestions({
         topic,
         questionCount: 5,
         questionTypes: ['multiple-choice', 'true-false', 'short-answer'],
         difficulty: 'medium',
-        context: text
+        context: contentToUse
       });
       
       // Convert advanced AI questions to ParsedQuestion format

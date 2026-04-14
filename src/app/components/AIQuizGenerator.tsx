@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { SmartAIService } from '../lib/smartAIService';
+import { EnhancedAIService } from '../lib/enhancedAIService';
 import { ParsedQuestion } from '../lib/quizParser';
 
 interface AIQuizGeneratorProps {
@@ -108,26 +108,37 @@ A: 1945`;
       const topicMatch = contentToUse.match(/topic:\s*(.+)/i);
       const topic = topicMatch ? topicMatch[1] : contentToUse.trim().split('\n')[0] || 'General Knowledge';
       
-      // Use Smart AI Service for robust generation
-      const aiService = SmartAIService.getInstance();
+      // Use Enhanced AI Service for advanced generation
+      const aiService = EnhancedAIService.getInstance();
       const questions = await aiService.generateQuestions({
         topic,
         questionCount: 5,
-        questionTypes: ['multiple-choice', 'true-false', 'short-answer'],
+        questionTypes: ['multiple-choice', 'true-false', 'short-answer', 'fill-blank', 'matching'],
         difficulty: 'medium',
-        context: contentToUse
+        context: contentToUse,
+        culturalContext: 'global'
       });
       
-      // Convert advanced AI questions to ParsedQuestion format
-      const parsedQuestions: ParsedQuestion[] = questions.map((q: any) => ({
-        type: q.type as 'multiple-choice' | 'true-false' | 'short-answer',
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        points: q.points
-      }));
+      // Convert Enhanced AI questions to ParsedQuestion format
+      const parsedQuestions: ParsedQuestion[] = questions.map((q: any) => {
+        // Convert fill-blank and matching to supported types
+        let convertedType = q.type;
+        if (q.type === 'fill-blank') {
+          convertedType = 'short-answer';
+        } else if (q.type === 'matching') {
+          convertedType = 'multiple-choice';
+        }
+        
+        return {
+          type: convertedType as 'multiple-choice' | 'true-false' | 'short-answer',
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          points: q.points
+        };
+      });
       
-      console.log('Advanced AI Generated questions:', parsedQuestions);
+      console.log('Enhanced AI Generated questions:', parsedQuestions);
       setPreviewQuestions(parsedQuestions);
       setDetectedTitle(topic);
       toast.success(`Generated ${parsedQuestions.length} intelligent questions about ${topic}!`);
